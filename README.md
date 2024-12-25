@@ -93,3 +93,51 @@ class LoginInterceptor: IRouteInterceptor {
     }
 }
 ```
+
+
+## ServiceProvider 服务
+模块之间通过 `ServiceProvider` 来获取接口相关实现；
+
+提供服务的接口需要继承 `IServiceProvider` 接口，内部是服务提供的功能的相关方法；
+
+对应实现需要实现该接口，并且使用 `@Service` 注解标识：
+- `singleton`：是否为单例，每次获取都会返回同一个实例
+- `returnType`：当注解使用在方法上时而返方法返回值不是接口类型时，需要指定接口类型
+
+> 目前仅支持 **一对一** 的实现。
+
+例子：
+服务接口声明
+```kotlin
+interface ILoginService: IServiceProvider {
+    fun login()
+}
+```
+
+接口实现：
+```kotlin
+@Service(singleton = true)
+class LoginServiceImpl: ILoginService {
+    override fun login() {
+        //...
+    }
+}
+
+// 也可以通过静态方法或top-level方法提供实现
+// 当返回值不是接口类型时，需要指定接口类型 returnType
+@Service(singleton = true, returnType = ILoginService::class)
+fun loginServiceProvider() = LoginServiceImpl() 
+
+// 返回值是接口类型时，不需要指定接口类型
+@Service(singleton = true)
+fun loginServiceProvider(): ILoginService = LoginServiceImpl() 
+```
+
+获取实现：
+```kotlin
+val loginService = ServiceProvider.getService(ILoginService::class.java)
+loginService?.login()
+
+// 或者使用提供的扩展方法
+ILoginService::class.impl()?.login()
+```

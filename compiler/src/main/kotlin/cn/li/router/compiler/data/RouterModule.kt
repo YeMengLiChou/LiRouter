@@ -8,5 +8,6 @@ package cn.li.router.compiler.data
 data class RouterModule(
     val routers: List<RouteMeta>,
     val autowiredMetas: List<AutowiredMeta>,
-    val interceptorMetas: List<RouteInterceptorMeta>
+    val interceptorMetas: List<RouteInterceptorMeta>,
+    val serviceMetas: List<ServiceMeta>
 )

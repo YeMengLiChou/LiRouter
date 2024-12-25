@@ -2,16 +2,20 @@ package cn.li.router.compiler.ksp
 
 import cn.li.router.api.annotations.RouteInterceptor
 import cn.li.router.api.annotations.Router
+import cn.li.router.api.annotations.Service
 import cn.li.router.compiler.data.AutowiredMeta
 import cn.li.router.compiler.data.RouteInterceptorMeta
 import cn.li.router.compiler.data.RouteMeta
 import cn.li.router.compiler.data.RouterModule
+import cn.li.router.compiler.data.ServiceMeta
 import cn.li.router.compiler.utils.Constants
 import cn.li.router.compiler.utils.RouterChecker
 import cn.li.router.compiler.utils.extractAutowiredMeta
 import cn.li.router.compiler.utils.extractRouteInterceptorMeta
 import cn.li.router.compiler.utils.extractRouteMeta
+import cn.li.router.compiler.utils.extractServiceMeta
 import cn.li.router.compiler.utils.genIAutowiredImpl
+import cn.li.router.compiler.utils.genServiceProxy
 import com.google.devtools.ksp.containingFile
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
@@ -43,7 +47,7 @@ class LiRouterProcessor(
 
     private val codeGenerator = environment.codeGenerator
 
-    private val routerKsFiles = mutableListOf<KSFile>()
+    private val routerKsFiles = mutableSetOf<KSFile>()
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         logger.info("LiRouterProcessor start")
@@ -81,16 +85,32 @@ class LiRouterProcessor(
         val interceptorMetas =
             resolver.getSymbolsWithAnnotation(RouteInterceptor::class.qualifiedName!!)
                 .filter(RouterChecker::checkInterceptorAnnotation)
+                .onEach { it.containingFile?.let(routerKsFiles::add)  }
                 .map(KSAnnotated::extractRouteInterceptorMeta)
                 .toList()
 
-        logger.info("routerInfoItems: ${routerInfoItems.toList()}")
-        logger.info("autowiredMetas: ${autowiredMetas.toList()}")
-        logger.info("interceptors: ${interceptorMetas.toList()}")
+        // Service 信息
+        val serviceMetas = resolver.getSymbolsWithAnnotation(Service::class.qualifiedName!!)
+            .filter(RouterChecker::checkServiceImplAnnotation)
+            .onEach { it.containingFile?.let(routerKsFiles::add)  }
+            .map(KSAnnotated::extractServiceMeta)
+            .toList()
+            .takeIf(RouterChecker::checkDistinctService)
+            ?.onEach { meta ->
+                // 生成代理类
+                meta.genServiceProxy(codeGenerator, logger)
+            }
+
+        serviceMetas ?: return
+
+        logger.info("routerInfoItems: $routerInfoItems")
+        logger.info("autowiredMetas: $autowiredMetas")
+        logger.info("interceptors: $interceptorMetas")
+        logger.info("serviceMetas: $serviceMetas")
 
         // 生成带有收集到的信息的类
         generateRouterModuleCode(
-            RouterModule(routerInfoItems, autowiredMetas, interceptorMetas)
+            RouterModule(routerInfoItems, autowiredMetas, interceptorMetas, serviceMetas)
         )
     }
 
@@ -98,8 +118,8 @@ class LiRouterProcessor(
      * 生成路由类注册代码类
      * */
     private fun generateRouterModuleCode(module: RouterModule) {
-        logger.info("[generateRouterCode] start: ${module.routers.size} routers, ${module.autowiredMetas.size} autowireds")
-        if (module.routers.isEmpty() && module.autowiredMetas.isEmpty()) {
+        logger.info("[generateRouterCode] start: ${module.routers.size} routers, ${module.autowiredMetas.size} autowireds, ${module.interceptorMetas.size} interceptors")
+        if (module.routers.isEmpty() && module.autowiredMetas.isEmpty() && module.interceptorMetas.isEmpty()) {
             return
         }
         val clasName = "%s%d".format(Constants.PREFIX_ROUTER_MAP, System.currentTimeMillis())
@@ -115,6 +135,7 @@ class LiRouterProcessor(
                 generateInitRouteCode(writer, module.routers)
                 generateInitAutowiredCode(writer, module.autowiredMetas)
                 generateInitInterceptorCode(writer, module.interceptorMetas)
+                generateInitServiceProviderCode(writer, module.serviceMetas)
 
                 writer.appendLine("}")
             }
@@ -151,4 +172,11 @@ class LiRouterProcessor(
         writer.appendLine("\t}")
     }
 
+    private fun generateInitServiceProviderCode(writer: BufferedWriter, metas: List<ServiceMeta>) {
+        writer.appendLine("\toverride fun initServiceProvider() {")
+        metas.forEach { meta ->
+            writer.appendLine("\t\tcn.li.router.ServiceProvider.registerService(${meta.serviceProviderName}::class.java, ${meta.getGenerateClassFileName()}())")
+        }
+        writer.appendLine("\t}")
+    }
 }

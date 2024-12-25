@@ -34,6 +34,10 @@ class RouterAsmVisitor(
             println("[LiRouter] visitMethod: ${name}")
             return RouterMethodVisitor(api, super.visitMethod(access, name, descriptor, signature, exceptions), access, name, descriptor)
         }
+        if (name == "initServiceProvider") {
+            println("[LiRouter] visitMethod: ${name}")
+            return RouterMethodVisitor(api, super.visitMethod(access, name, descriptor, signature, exceptions), access, name, descriptor)
+        }
         return super.visitMethod(access, name, descriptor, signature, exceptions)
     }
 
@@ -42,6 +46,7 @@ class RouterAsmVisitor(
         AdviceAdapter(api, nextMethodVisitor, access, name, descriptor) {
 
         override fun onMethodEnter() {
+            // TODO: 外层用一个 list 存储这些所有实例化数据，避免重复实例化
             if (name == "initLiRouter") {
                 allModules.forEach { moduleName ->
                     println("[LiRouter] insertModule: $moduleName")
@@ -62,6 +67,14 @@ class RouterAsmVisitor(
                     println("[LiRouter] insertModule: $moduleName")
                     moduleName.createModuleInstance()
                     moduleName.invokeModuleMethod("initRouteInterceptor", "()V")
+                }
+            }
+
+            if (name == "initServiceProvider") {
+                allModules.forEach { moduleName ->
+                    println("[LiRouter] insertModule: $moduleName")
+                    moduleName.createModuleInstance()
+                    moduleName.invokeModuleMethod("initServiceProvider", "()V")
                 }
             }
         }

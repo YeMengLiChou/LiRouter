@@ -16,3 +16,7 @@ internal fun initAutowire() {
 internal fun initRouteInterceptor() {
     // asm inject
 }
+
+internal fun initServiceProvider() {
+    // asm inject
+}

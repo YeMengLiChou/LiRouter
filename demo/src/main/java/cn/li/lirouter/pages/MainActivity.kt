@@ -7,7 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import cn.li.lirouter.databinding.ActivityMainBinding
+import cn.li.lirouter.services.ITestService
 import cn.li.router.LiRouter
+import cn.li.router.ServiceProvider
 import cn.li.router.api.annotations.Router
 import cn.li.router.runtime.RouteNavigator
 import cn.li.router.runtime.callback.NavigationCallback
@@ -29,6 +31,7 @@ class MainActivity: AppCompatActivity() {
 
         LiRouter.init()
         initViews()
+        ServiceProvider.getService(ITestService::class.java)?.test(this)
     }
 
     private fun initViews() {

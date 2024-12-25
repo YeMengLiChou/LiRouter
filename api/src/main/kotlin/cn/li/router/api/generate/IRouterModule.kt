@@ -11,4 +11,6 @@ interface IRouterModule {
     fun initAutowired()
 
     fun initRouteInterceptor()
+
+    fun initServiceProvider()
 }

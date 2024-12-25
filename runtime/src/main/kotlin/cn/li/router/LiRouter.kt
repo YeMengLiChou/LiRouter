@@ -24,6 +24,7 @@ object LiRouter {
     var isInitialized = false
         private set
 
+
     @Synchronized
     fun init() {
         require(!isInitialized) {
@@ -33,7 +34,9 @@ object LiRouter {
         initLiRouter()
         initAutowire()
         initRouteInterceptor()
-        RouterController.loadModuleBySpi()
+        initServiceProvider()
+        // TODO: 增量存在问题
+//        RouterController.loadModuleBySpi()
     }
 
     fun setLogger(logger: IRouterLogger): LiRouter {
